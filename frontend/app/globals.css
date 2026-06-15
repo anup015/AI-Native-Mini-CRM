@@ -1,0 +1,71 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 33% 98%;
+  --foreground: 224 71% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 224 71% 4%;
+  --primary: 243 75% 59%; /* Indigo-primary */
+  --primary-foreground: 210 40% 98%;
+  --secondary: 220 14% 94%;
+  --secondary-foreground: 224 71% 4%;
+  --muted: 220 14% 94%;
+  --muted-foreground: 220 8% 46%;
+  --accent: 184 100% 45%; /* AI Blue */
+  --accent-foreground: 224 71% 4%;
+  --border: 220 13% 89%;
+  --input: 220 13% 89%;
+  --ring: 243 75% 59%;
+  --radius: 1rem;
+}
+
+.dark {
+  --background: 230 25% 6%; /* obsidian grey background #090a0f */
+  --foreground: 210 40% 98%;
+  --card: 230 18% 10%; /* #12131b card */
+  --card-foreground: 210 40% 98%;
+  --primary: 184 100% 48%; /* AI Blue primary in dark mode #00ebf8 */
+  --primary-foreground: 230 25% 6%;
+  --secondary: 230 15% 15%; /* #212330 */
+  --secondary-foreground: 210 40% 98%;
+  --muted: 230 15% 14%; /* #1f212d */
+  --muted-foreground: 220 10% 70%;
+  --accent: 243 75% 66%; /* Indigo accent in dark mode */
+  --accent-foreground: 210 40% 98%;
+  --border: 230 15% 18%; /* #232535 */
+  --input: 230 15% 18%;
+  --ring: 184 100% 48%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image: radial-gradient(circle at 10% 15%, rgba(0, 240, 255, 0.08), transparent 30%),
+                      radial-gradient(circle at 90% 10%, rgba(99, 102, 241, 0.08), transparent 32%),
+                      radial-gradient(circle at 50% 85%, rgba(16, 185, 129, 0.05), transparent 25%);
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply border border-white/20 dark:border-white/10 bg-white/70 dark:bg-white/5 backdrop-blur-xl shadow-glass;
+  }
+  
+  .glass-premium {
+    @apply border border-white/25 dark:border-white/10 bg-white/80 dark:bg-[#12131b]/60 backdrop-blur-2xl shadow-[0_12px_40px_rgba(0,0,0,0.3)];
+  }
+
+  .card-premium {
+    @apply transition-all duration-300 border-white/10 hover:border-primary/30 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(0,240,255,0.08)] dark:hover:shadow-[0_8px_30px_rgba(0,240,255,0.12)];
+  }
+}
+

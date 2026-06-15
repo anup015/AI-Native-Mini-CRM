@@ -1,0 +1,318 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  ANALYST
+  SALES
+}
+
+enum CustomerGender {
+  MALE
+  FEMALE
+  NON_BINARY
+  OTHER
+  UNKNOWN
+}
+
+enum PreferredChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum CampaignChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum CommunicationStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  OPENED
+  CLICKED
+  FAILED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  passwordHash  String?
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(SALES)
+  accounts      Account[]
+  sessions      Session[]
+  customers     Customer[]        @relation("CustomerOwner")
+  segments      Segment[]         @relation("SegmentCreator")
+  campaigns     Campaign[]        @relation("CampaignCreator")
+  leads         Lead[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Customer {
+  id              String             @id @default(cuid())
+  name            String
+  email           String?            @unique
+  phone           String?            @unique
+  city            String?
+  gender          CustomerGender     @default(UNKNOWN)
+  age             Int?
+  tags            String[]           @default([])
+  preferredChannel PreferredChannel  @default(EMAIL)
+  totalSpend      Decimal            @default(0) @db.Decimal(14, 2)
+  lastOrderDate   DateTime?
+  ownerId         String?
+  owner           User?              @relation("CustomerOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  orders          Order[]
+  memberships     CustomerSegment[]
+  communications  CommunicationLog[]
+  webhookEvents   WebhookEvent[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([city])
+  @@index([gender])
+  @@index([preferredChannel])
+  @@index([lastOrderDate])
+  @@index([totalSpend])
+  @@index([city, preferredChannel])
+  @@index([gender, age])
+  @@index([tags], type: Gin)
+  @@index([createdAt])
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount        Decimal     @db.Decimal(14, 2)
+  category      String
+  items         Json
+  status        OrderStatus @default(PENDING)
+  purchaseDate  DateTime    @default(now())
+
+  @@index([customerId])
+  @@index([status])
+  @@index([category])
+  @@index([purchaseDate])
+  @@index([customerId, purchaseDate])
+  @@index([status, purchaseDate])
+  @@index([items], type: Gin)
+}
+
+model Segment {
+  id             String            @id @default(cuid())
+  name           String
+  description    String?
+  rules          Json
+  customerCount  Int               @default(0)
+  lastComputedAt DateTime?
+  createdById    String?
+  createdBy      User?             @relation("SegmentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  customers      CustomerSegment[]
+  campaigns      Campaign[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([createdById])
+  @@index([customerCount])
+  @@index([lastComputedAt])
+  @@index([createdAt])
+  @@index([rules], type: Gin)
+}
+
+model CustomerSegment {
+  customerId String
+  segmentId  String
+  assignedAt DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  segment  Segment  @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, segmentId])
+  @@index([segmentId])
+  @@index([customerId])
+}
+
+model Campaign {
+  id           String          @id @default(cuid())
+  title        String
+  audienceId   String
+  audience     Segment         @relation(fields: [audienceId], references: [id], onDelete: Restrict)
+  channel      CampaignChannel
+  message      String          @db.Text
+  status       CampaignStatus  @default(DRAFT)
+  scheduledAt  DateTime?
+  createdById  String?
+  createdBy    User?           @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  analytics    CampaignAnalytics?
+  logs         CommunicationLog[]
+  webhookEvents WebhookEvent[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([audienceId])
+  @@index([channel])
+  @@index([status])
+  @@index([createdById])
+  @@index([scheduledAt])
+  @@index([createdAt])
+  @@index([channel, status])
+}
+
+model CommunicationLog {
+  id               String              @id @default(cuid())
+  campaignId       String
+  customerId       String
+  channel          CampaignChannel
+  status           CommunicationStatus @default(QUEUED)
+  providerMessageId String?
+  messageSnapshot  String              @db.Text
+  errorMessage     String?
+  metadata         Json?
+  sentAt           DateTime            @default(now())
+  deliveredAt      DateTime?
+  openedAt         DateTime?
+  clickedAt        DateTime?
+  campaign         Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer         Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@index([customerId, status])
+  @@index([channel, status])
+  @@index([sentAt])
+  @@index([providerMessageId])
+  @@index([metadata], type: Gin)
+}
+
+model CampaignAnalytics {
+  id              String   @id @default(cuid())
+  campaignId      String   @unique
+  sent            Int      @default(0)
+  delivered       Int      @default(0)
+  failed          Int      @default(0)
+  opened          Int      @default(0)
+  clicked         Int      @default(0)
+  converted       Int      @default(0)
+  calculatedAt    DateTime  @updatedAt
+  campaign        Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([sent])
+  @@index([opened])
+  @@index([clicked])
+  @@index([converted])
+}
+
+model WebhookEvent {
+  id               String               @id @default(cuid())
+  source           String
+  eventType        String
+  providerEventId  String?
+  campaignId       String?
+  customerId       String?
+  status           WebhookEventStatus    @default(RECEIVED)
+  payload          Json
+  processedAt      DateTime?
+  receivedAt       DateTime             @default(now())
+  errorMessage     String?
+  campaign         Campaign?            @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  customer         Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([source, eventType])
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([status])
+  @@index([receivedAt])
+  @@index([providerEventId])
+  @@index([payload], type: Gin)
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  company   String
+  value     Int      @default(0)
+  stage     String   @default("NEW")
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([stage])
+  @@index([createdAt])
+}
